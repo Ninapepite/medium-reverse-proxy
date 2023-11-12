@@ -1,0 +1,92 @@
+version: '3.7'
+
+services:
+  # MySQL Service
+  mysql:
+    image: mysql:latest # Utilise l'image MySQL version 8
+    container_name: mysql-server
+    volumes:
+      - ./mysql_data:/var/lib/mysql # Persiste les données de MySQL dans un volume nommé
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassroot # Définit le mot de passe root (à changer pour un mot de passe sécurisé)
+      MYSQL_DATABASE: wordpress # Crée une base de données WordPress automatiquement
+      MYSQL_USER: wordpressuser # Définit l'utilisateur de la base de données
+      MYSQL_PASSWORD: wordpresspass # Définit le mot de passe pour l'utilisateur de la base de données (à changer pour un mot de passe sécurisé)
+    restart: always # Redémarre toujours le service en cas d'arrêt
+    networks:
+      - wordpress-network # Utilise le réseau wordpress-network
+      - monitor-network # Utilise le réseau monitor-network
+
+  # WordPress Service
+  wordpress:
+    depends_on:
+      - mysql # Dépend du service MySQL pour fonctionner
+    image: wordpress:latest # Utilise la dernière version de WordPress
+    container_name: wordpress-server
+    environment:
+      WORDPRESS_DB_HOST: mysql-server # Utilise le service MySQL pour la base de données
+      WORDPRESS_DB_USER: wordpressuser # Utilisateur de la base de données
+      WORDPRESS_DB_PASSWORD: wordpresspass # Mot de passe de la base de données
+      WORDPRESS_DB_NAME: wordpress # Nom de la base de données
+    restart: always # Redémarre toujours le service en cas d'arrêt
+    networks:
+      - wordpress-network # Utilise le réseau wordpress-network
+      - monitor-network # Utilise le réseau monitor-network
+      - frontend # Utilise le réseau frontend
+  proxymanager:
+    image: 'jc21/nginx-proxy-manager:latest' # Utilise l'image Nginx Proxy Manager
+    container_name: nginx-proxy-manager # Nomme le conteneur nginx-proxy-manager
+    restart: unless-stopped # Redémarre le service en cas d'arrêt
+    ports:
+      # Expose les ports 80, 81 et 443 de la machine hôte
+      - '80:80'
+      - '81:81'
+      - '443:443'
+    volumes:
+      # Persiste les données de Nginx Proxy Manager dans des volumes nommés
+      - ./data:/data
+      - ./letsencrypt:/etc/letsencrypt
+    networks:
+      - monitor-network # Utilise le réseau monitor-network
+      - frontend # Utilise le réseau frontend
+  # Jenkins Service
+  jenkins:
+    image: jenkins/jenkins:lts # Utilise l'image Jenkins Long-Term Support (LTS)
+    container_name: jenkins-server
+    user: root
+    volumes:
+      - ./jenkins_data:/var/jenkins_home:rw # Persiste les données de Jenkins dans un volume nommé
+    restart: always # Redémarre toujours le service en cas d'arrêt
+    networks:
+      - jenkins-network # Utilise le réseau jenkins-network
+      - monitor-network # Utilise le réseau monitor-network
+      - frontend # Utilise le réseau frontend
+
+  # Uptime Kuma Service
+  uptimekuma:
+    image: louislam/uptime-kuma:1 # Utilise l'image Uptime Kuma
+    container_name: uptimekuma-server
+    volumes:
+      - ./uptimekuma_data:/app/data # Persiste les données de Uptime Kuma dans un volume nommé
+    restart: always # Redémarre toujours le service en cas d'arrêt
+    networks:
+      - uptimekuma-network # Utilise le réseau uptimekuma-network
+      - monitor-network # Utilise le réseau monitor-network
+      - frontend # Utilise le réseau frontend
+
+networks:
+  # Réseau pour WordPress et MySQL
+  wordpress-network:
+    driver: bridge
+  # Réseau pour Jenkins
+  jenkins-network:
+    driver: bridge
+  # Réseau pour Uptime Kuma
+  uptimekuma-network:
+    driver: bridge
+  # Réseau pour les services de monitoring
+  monitor-network:
+    driver: bridge
+  # Réseau pour le reverse proxy
+  frontend:
+    driver: bridge

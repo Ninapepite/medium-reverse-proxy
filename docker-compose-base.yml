@@ -1,0 +1,76 @@
+version: '3.7'
+
+services:
+  # MySQL Service
+  mysql:
+    image: mysql:latest # Utilise l'image MySQL version 8
+    container_name: mysql-server
+    volumes:
+      - ./mysql_data:/var/lib/mysql # Persiste les données de MySQL dans un volume nommé
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassroot # Définit le mot de passe root (à changer pour un mot de passe sécurisé)
+      MYSQL_DATABASE: wordpress # Crée une base de données WordPress automatiquement
+      MYSQL_USER: wordpressuser # Définit l'utilisateur de la base de données
+      MYSQL_PASSWORD: wordpresspass # Définit le mot de passe pour l'utilisateur de la base de données (à changer pour un mot de passe sécurisé)
+    restart: always # Redémarre toujours le service en cas d'arrêt
+    networks:
+      - wordpress-network # Utilise le réseau wordpress-network
+      - monitor-network # Utilise le réseau monitor-network
+
+  # WordPress Service
+  wordpress:
+    depends_on:
+      - mysql # Dépend du service MySQL pour fonctionner
+    image: wordpress:latest # Utilise la dernière version de WordPress
+    container_name: wordpress-server
+    ports:
+      - "8000:80" # Expose WordPress sur le port 8000 de la machine hôte
+    environment:
+      WORDPRESS_DB_HOST: mysql-server # Utilise le service MySQL pour la base de données
+      WORDPRESS_DB_USER: wordpressuser # Utilisateur de la base de données
+      WORDPRESS_DB_PASSWORD: wordpresspass # Mot de passe de la base de données
+      WORDPRESS_DB_NAME: wordpress # Nom de la base de données
+    restart: always # Redémarre toujours le service en cas d'arrêt
+    networks:
+      - wordpress-network # Utilise le réseau wordpress-network
+      - monitor-network # Utilise le réseau monitor-network
+
+  # Jenkins Service
+  jenkins:
+    image: jenkins/jenkins:lts # Utilise l'image Jenkins Long-Term Support (LTS)
+    container_name: jenkins-server
+    ports:
+      - "8080:8080" # Expose Jenkins sur le port 8080 de la machine hôte
+    volumes:
+      - ./jenkins_data:/var/jenkins_home # Persiste les données de Jenkins dans un volume nommé
+    restart: always # Redémarre toujours le service en cas d'arrêt
+    networks:
+      - jenkins-network # Utilise le réseau jenkins-network
+      - monitor-network # Utilise le réseau monitor-network
+
+  # Uptime Kuma Service
+  uptimekuma:
+    image: louislam/uptime-kuma:1 # Utilise l'image Uptime Kuma
+    container_name: uptimekuma-server
+    ports:
+      - "3001:3001" # Expose Uptime Kuma sur le port 3001 de la machine hôte
+    volumes:
+      - ./uptimekuma_data:/app/data # Persiste les données de Uptime Kuma dans un volume nommé
+    restart: always # Redémarre toujours le service en cas d'arrêt
+    networks:
+      - uptimekuma-network # Utilise le réseau uptimekuma-network
+      - monitor-network # Utilise le réseau monitor-network
+
+networks:
+  # Réseau pour WordPress et MySQL
+  wordpress-network:
+    driver: bridge
+  # Réseau pour Jenkins
+  jenkins-network:
+    driver: bridge
+  # Réseau pour Uptime Kuma
+  uptimekuma-network:
+    driver: bridge
+  # Réseau pour les services de monitoring
+  monitor-network:
+    driver: bridge
